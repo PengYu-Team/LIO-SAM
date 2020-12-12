@@ -313,14 +313,14 @@ void imuAccel2rosAccel(sensor_msgs::Imu *thisImuMsg, T *acc_x, T *acc_y, T *acc_
     *acc_z = thisImuMsg->linear_acceleration.z;
 }
 
-
+/*将imu欧拉角转换到雷达坐标下*/
 template<typename T>
 void imuRPY2rosRPY(sensor_msgs::Imu *thisImuMsg, T *rosRoll, T *rosPitch, T *rosYaw)
 {
     double imuRoll, imuPitch, imuYaw;
     tf::Quaternion orientation;
-    tf::quaternionMsgToTF(thisImuMsg->orientation, orientation);
-    tf::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw);
+    tf::quaternionMsgToTF(thisImuMsg->orientation, orientation); // tf
+    tf::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw); // 转换到雷达坐标系下
 
     *rosRoll = imuRoll;
     *rosPitch = imuPitch;
