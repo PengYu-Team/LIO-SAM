@@ -38,7 +38,7 @@ public:
     tf::TransformListener tfListener;
     tf::StampedTransform lidar2Baselink;
 
-    double lidarOdomTime = -1;transStartInverse
+    double lidarOdomTime = -1;//transStartInverse
     deque<nav_msgs::Odometry> imuOdomQueue;
 
     TransformFusion()
@@ -205,6 +205,7 @@ public:
     gtsam::Pose3 imu2Lidar = gtsam::Pose3(gtsam::Rot3(1, 0, 0, 0), gtsam::Point3(-extTrans.x(), -extTrans.y(), -extTrans.z()));
     gtsam::Pose3 lidar2Imu = gtsam::Pose3(gtsam::Rot3(1, 0, 0, 0), gtsam::Point3(extTrans.x(), extTrans.y(), extTrans.z()));
 
+    // 构造函数
     IMUPreintegration()
     {
         // 订阅话题进入回调函数：imu数据，激光里程计增量（后端建图）
@@ -250,6 +251,7 @@ public:
         doneFirstOpt = false;
         systemInitialized = false;
     }
+    
     /*里程计回调*/
     void odometryHandler(const nav_msgs::Odometry::ConstPtr& odomMsg)
     {   // 锁
@@ -464,7 +466,7 @@ public:
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imu_raw)
     {   // 锁
         std::lock_guard<std::mutex> lock(mtx);
-        // 将imu数据转换到雷达坐标系下
+        // 将imu数据转换到雷达坐标系下，imu和lidar不是一个坐标系吗？固定转换 还是 动转换？
         sensor_msgs::Imu thisImu = imuConverter(*imu_raw);
         // 存入队尾，分别为优化前后的imu数据
         imuQueOpt.push_back(thisImu);
@@ -472,8 +474,9 @@ public:
         // 检查是否执行过第一次优化（需要先在odomHandler优化后才能继续后续操作）
         if (doneFirstOpt == false)
             return;
-        // 获得时间间隔
+        // 返回时间，单位：秒
         double imuTime = ROS_TIME(&thisImu);
+        // 计算时间间隔 与上一次接受道imu消息
         double dt = (lastImuT_imu < 0) ? (1.0 / 500.0) : (imuTime - lastImuT_imu);
         lastImuT_imu = imuTime;
 
@@ -485,7 +488,7 @@ public:
         // predict odometry 根据预积分预测里程
         gtsam::NavState currentState = imuIntegratorImu_->predict(prevStateOdom, prevBiasOdom);
 
-        // publish odometry
+        // 发布IMU里程计
         nav_msgs::Odometry odometry;
         odometry.header.stamp = thisImu.header.stamp;
         odometry.header.frame_id = odometryFrame;
@@ -513,7 +516,8 @@ public:
     }
 };
 
-
+// 主函数 - IMU预积分 订阅IMU数据及激光雷达里程计
+// 发布imu里程计
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "roboat_loam");
@@ -524,6 +528,7 @@ int main(int argc, char** argv)
 
     ROS_INFO("\033[1;32m----> IMU Preintegration Started.\033[0m");
     
+    // 多线程？
     ros::MultiThreadedSpinner spinner(4);
     spinner.spin();
     
