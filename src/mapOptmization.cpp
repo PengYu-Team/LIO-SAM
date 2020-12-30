@@ -239,6 +239,7 @@ public:
         std::lock_guard<std::mutex> lock(mtx);
 
         static double timeLastProcessing = -1;
+        // mappingProcessInterval 参数,默认为0.15
         if (timeLaserInfoCur - timeLastProcessing >= mappingProcessInterval)
         {
             timeLastProcessing = timeLaserInfoCur;
@@ -455,7 +456,7 @@ public:
     {
         if (loopClosureEnableFlag == false)
             return;
-
+        // 默认1hz
         ros::Rate rate(loopClosureFrequency);
         while (ros::ok())
         {
@@ -720,14 +721,6 @@ public:
         markerArray.markers.push_back(markerEdge);
         pubLoopConstraintEdge.publish(markerArray);
     }
-
-
-
-
-
-
-
-    
 
 
     /*利用imu，odom更新初始位姿估计*/

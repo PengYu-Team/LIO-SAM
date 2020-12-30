@@ -57,7 +57,7 @@ private:
     ros::Subscriber subOdom;
     std::deque<nav_msgs::Odometry> odomQueue;
 
-    std::deque<sensor_msgs::PointCloud2> cloudQueue;
+    std::deque<sensor_msgs::PointCloud2> cloudQueue;  // 所有原始输入点云 pcl格式
     sensor_msgs::PointCloud2 currentCloudMsg;
 
     double *imuTime = new double[queueLength];
@@ -69,9 +69,9 @@ private:
     bool firstPointFlag;
     Eigen::Affine3f transStartInverse;
 
-    pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;
+    pcl::PointCloud<PointXYZIRT>::Ptr laserCloudIn;     // 所有原始输入点云 pcl格式
     pcl::PointCloud<OusterPointXYZIRT>::Ptr tmpOusterCloudIn;
-    pcl::PointCloud<PointType>::Ptr   fullCloud;
+    pcl::PointCloud<PointType>::Ptr   fullCloud;    // fullCloud存储所有去畸变点云
     pcl::PointCloud<PointType>::Ptr   extractedCloud;
 
     int deskewFlag;
@@ -97,7 +97,9 @@ public:
         subOdom       = nh.subscribe<nav_msgs::Odometry>(odomTopic+"_incremental", 2000, &ImageProjection::odometryHandler, this, ros::TransportHints().tcpNoDelay());
         subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
         // 发布话题：去畸变的点云；点云信息（自定义消息 msg/cloud_info.msg）
+        //　发布用于rviz显示
         pubExtractedCloud = nh.advertise<sensor_msgs::PointCloud2> ("lio_sam/deskew/cloud_deskewed", 1);
+        //　发布用于featureExtraction订阅处理
         pubLaserCloudInfo = nh.advertise<lio_sam::cloud_info> ("lio_sam/deskew/cloud_info", 1);
         // 分配内存
         allocateMemory();
@@ -193,6 +195,7 @@ public:
         if (!cachePointCloud(laserCloudMsg))
             return;
         // 检查是否有imu数据，第一个imu小于雷达当前帧时间戳, 最后一个imu小于下一帧时间戳
+        // imu去畸变 + 里程计去畸变
         if (!deskewInfo())
             return;
 
@@ -216,7 +219,8 @@ public:
         // 点云消息的队列先进先出
         currentCloudMsg = std::move(cloudQueue.front());
         cloudQueue.pop_front();
-        // 得到点云
+        // 得到点云（sensor是参数，可配置）
+        // 将ros话题转为pcl格式
         if (sensor == SensorType::VELODYNE)
         {
             pcl::moveFromROSMsg(currentCloudMsg, *laserCloudIn);
@@ -559,6 +563,7 @@ public:
             thisPoint.y = laserCloudIn->points[i].y;
             thisPoint.z = laserCloudIn->points[i].z;
             thisPoint.intensity = laserCloudIn->points[i].intensity;
+            // 点云数据的预处理
             // 与光心的距离，太远太近都不要
             float range = pointDistance(thisPoint); // 与原点距离
             if (range < lidarMinRange || range > lidarMaxRange)
@@ -569,12 +574,12 @@ public:
             // 行线数不正确
             if (rowIdn < 0 || rowIdn >= N_SCAN)
                 continue;
-            // 下采样
+            // 下采样 downsampleRate是参数,默认是1,则不进行下采样
             if (rowIdn % downsampleRate != 0)
                 continue;
             // 计算激光点水平方向上的角度
             float horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
-            // 角分辨率 360度/Horizon_SCAN
+            // 角分辨率 360度/Horizon_SCAN, Horizon_SCAN是参数,默认为1800
             static float ang_res_x = 360.0/float(Horizon_SCAN);
             // 计算激光点属于哪一列
             // 以velodyne vlp16为例：从负y为0线，逆时针，一共1800线(Horizon_SCAN =1800)
@@ -629,7 +634,9 @@ public:
     void publishClouds()
     {
         cloudInfo.header = cloudHeader;
+        // 发布去畸变点云 并 存入 cloudInfo
         cloudInfo.cloud_deskewed  = publishCloud(&pubExtractedCloud, extractedCloud, cloudHeader.stamp, lidarFrame);
+        // 发布cloudInfo
         pubLaserCloudInfo.publish(cloudInfo);
     }
 };
