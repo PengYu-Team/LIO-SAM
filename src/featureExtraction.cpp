@@ -54,7 +54,6 @@ public:
     {
         cloudSmoothness.resize(N_SCAN*Horizon_SCAN);
 
-        // odometrySurfLeafSize是参数
         downSizeFilter.setLeafSize(odometrySurfLeafSize, odometrySurfLeafSize, odometrySurfLeafSize);
 
         extractedCloud.reset(new pcl::PointCloud<PointType>());
@@ -67,11 +66,9 @@ public:
     }
 
     void laserCloudInfoHandler(const lio_sam::cloud_infoConstPtr& msgIn)
-    {   
-        // 接收去畸变点云
+    {   // 接收去畸变点云
         cloudInfo = *msgIn; // new cloud info
         cloudHeader = msgIn->header; // new cloud header
-        // 转换为PCL格式
         pcl::fromROSMsg(msgIn->cloud_deskewed, *extractedCloud); // new cloud for extraction
         // 计算平滑度
         calculateSmoothness();
@@ -174,7 +171,7 @@ public:
                 for (int k = ep; k >= sp; k--)
                 {
                     int ind = cloudSmoothness[k].ind;
-                    if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] > edgeThreshold) // 大于阈值 edgeThreshold是参数
+                    if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] > edgeThreshold) // 大于阈值
                     {
                         largestPickedNum++;
                         if (largestPickedNum <= 20){ // 选取20个边缘点
@@ -205,7 +202,7 @@ public:
                 for (int k = sp; k <= ep; k++)
                 {
                     int ind = cloudSmoothness[k].ind;
-                    if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] < surfThreshold) // 小于阈值 surfThreshold是参数
+                    if (cloudNeighborPicked[ind] == 0 && cloudCurvature[ind] < surfThreshold) // 小于阈值
                     {
 
                         cloudLabel[ind] = -1;
@@ -242,7 +239,6 @@ public:
             downSizeFilter.setInputCloud(surfaceCloudScan);
             downSizeFilter.filter(*surfaceCloudScanDS);
 
-            // 指针也能相加?
             *surfaceCloud += *surfaceCloudScanDS;
         }
     }
